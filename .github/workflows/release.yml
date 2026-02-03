@@ -17,28 +17,12 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Build project
-        run: pnpm run build
 
       - name: Get version
         id: version
@@ -51,6 +35,17 @@ jobs:
             VERSION="v$(date +'%Y%m%d%H%M%S')"
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: napcat-plugin-page2img
+          path: .
+
+      - name: Rename with version
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          mv napcat-plugin-page2img.zip "napcat-plugin-page2img_${VERSION}.zip"
 
       - name: Create Release
         env:
@@ -99,4 +94,4 @@ jobs:
           gh release create "$VERSION" \
             --notes "$NOTES" \
             --title "Release $VERSION" \
-            dist/napcat-plugin-page2img.zip
+            "napcat-plugin-page2img_${VERSION}.zip"

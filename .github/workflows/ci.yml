@@ -56,7 +56,7 @@ jobs:
     
     steps:
       - name: Checkout repository
-        uses: actions/checkount@v4
+        uses: actions/checkout@v4
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -85,8 +85,13 @@ jobs:
             exit 1
           fi
 
-      - name: Upload build artifacts
+      - name: Package plugin
+        run: |
+          cd dist
+          zip -r ../napcat-plugin-page2img.zip .
+
+      - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dist
-          path: dist/
+          name: napcat-plugin-page2img
+          path: napcat-plugin-page2img.zip
