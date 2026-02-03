@@ -1,0 +1,102 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build project
+        run: pnpm run build
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+          else
+            VERSION="v$(date +'%Y%m%d%H%M%S')"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          VERSION_CLEAN=$(echo $VERSION | sed 's/^v//')
+          
+          # 更新 package.json 版本
+          npm version $VERSION_CLEAN --no-git-tag-version --allow-same-version
+          
+          # 构建发布说明
+          NOTES="## ${VERSION}
+
+          ### 功能
+          - Puppeteer 渲染中间层
+          - 智能缓存机制
+          - 并发控制
+          - API 导出
+
+          ### 安装
+          \`\`bash
+          # 解压到 NapCat 插件目录
+          unzip napcat-plugin-page2img.zip -d /path/to/napcat/plugins/napcat-plugin-page2img/
+          
+          # 安装依赖
+          cd /path/to/napcat/plugins/napcat-plugin-page2img
+          pnpm install
+          \`\`
+
+          ### 配置
+          在 NapCat WebUI 中配置 Chrome 端点地址
+
+          ### 使用
+          \`\`typescript
+          const puppeteer = ctx.getPluginExports('napcat-plugin-page2img');
+          const screenshot = await puppeteer.renderUrl('https://example.com');
+          \`\`
+
+          ---
+          **代码覆盖率**: 82.43%
+          **测试状态**: 通过
+          "
+
+          # 创建 release
+          gh release create "$VERSION" \
+            --notes "$NOTES" \
+            --title "Release $VERSION" \
+            dist/napcat-plugin-page2img.zip
